@@ -93,6 +93,30 @@ import SwiftUI
 import Observation
 import Foundation
 
+public enum AppError: Error, Sendable, Equatable {
+    case network
+    case decoding
+    case unknown(String)
+
+    var userMessage: String {
+        switch self {
+        case .network:
+            return "ネットワークエラーが発生しました。接続状況を確認して、再度お試しください。"
+        case .decoding:
+            return "データの読み込みに失敗しました。時間をおいて再度お試しください。"
+        case .unknown(let msg):
+            // 開発中は詳細を表示、運用では汎用文言に切り替えも可
+            return msg.isEmpty ? "不明なエラーが発生しました。" : msg
+        }
+    }
+
+    static func from(_ error: Error) -> AppError {
+        if error is CancellationError { return .unknown("処理が中断されました。") }
+        // 必要に応じてNSError(domain/code)やURLError等で分岐
+        return .unknown(error.localizedDescription)
+    }
+}
+
 // MARK: - Domain
 
 public struct Post: Identifiable, Sendable, Equatable {
@@ -227,12 +251,12 @@ struct FeedScreen: View {
     @Environment(AppTheme.self) private var theme
     @Environment(APIClient.self) private var api
 
-    enum ViewState: Equatable {
-        case idle
-        case loading
-        case error(String)
-        case loaded([Post])
-    }
+   enum ViewState: Equatable {
+    case idle
+    case loading
+    case error(AppError)   // ← ここを String から AppError へ
+    case loaded([Post])
+}
 
     @State private var state: ViewState = .idle
     @State private var isRefreshing = false
@@ -258,7 +282,7 @@ struct FeedScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .error(let message):
             VStack(spacing: 12) {
-                Text("エラー: \(message)")
+                Text("エラー: \(error.userMessage)") // 変更
                 Button("再試行") {
                     Task { await loadFeed() }
                 }
@@ -282,7 +306,8 @@ struct FeedScreen: View {
             let posts = try await api.getFeed()
             await MainActor.run { state = .loaded(posts) }
         } catch {
-            await MainActor.run { state = .error(error.localizedDescription) }
+         let appError = AppError.from(error)                    // 追加
+        await MainActor.run { state = .error(appError) }       // 変更
         }
     }
 
