@@ -9,6 +9,7 @@
 - VSA_Architecture を尊重しつつ、Environment/State/Observable を核に据えた設計を徹底。
 - Swift 6 の strict concurrency、初期化順序、プロパティラッパー運用、通信（WatchConnectivity含む）を安全に実装。
 - 私がコピペで使える、実践的でエラーが少ないコードを提示すること。
+- Xcode 26.0.1以降
 
 ---
 
